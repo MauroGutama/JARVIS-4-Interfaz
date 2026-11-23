@@ -1,0 +1,18 @@
+# Despliegue en Render (https://render.com) — las claves se introducen en el panel, no aquí.
+services:
+  - type: web
+    name: jarvis-4
+    runtime: node
+    plan: free
+    buildCommand: "echo sin dependencias"
+    startCommand: "node server/server.js"
+    healthCheckPath: /api/health
+    envVars:
+      - key: TRUST_PROXY
+        value: "1"
+      - key: AI_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: JARVIS_ACCESS_CODE
+        sync: false

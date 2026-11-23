@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030b19">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="JARVIS">
+<meta name="description" content="JARVIS 4.0: asistente con voz, inteligencia artificial, cámara y memoria para iPhone.">
+<title>JARVIS 4.0</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+<main class="wrap">
+  <header class="top">
+    <div class="tag">STARK INTERFACE · iOS</div>
+    <button class="status" id="state" type="button" aria-label="Estado de JARVIS; toca para ver ajustes"><span id="stateText">INICIANDO</span></button>
+  </header>
+
+  <div class="core-wrap" id="holo" aria-hidden="true">
+    <div class="holo-beam"></div>
+    <div class="holo-base"></div>
+    <svg class="hud" viewBox="0 0 300 300">
+      <circle cx="150" cy="150" r="138" class="hud-ring"/>
+      <path d="M150 12 A138 138 0 0 1 288 150" class="hud-arc a1"/>
+      <path d="M150 288 A138 138 0 0 1 12 150" class="hud-arc a2"/>
+      <g class="ticks"><line x1="150" y1="4" x2="150" y2="16"/><line x1="296" y1="150" x2="284" y2="150"/><line x1="150" y1="296" x2="150" y2="284"/><line x1="4" y1="150" x2="16" y2="150"/></g>
+    </svg>
+    <div id="core" class="core"><div class="core-scan"></div></div>
+    <div class="particles"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <h1>JARVIS 4.0</h1>
+  <h2 id="subtitle">VOZ · VISIÓN · MEMORIA · IA</h2>
+
+  <section class="panel glass">
+    <div class="panel-head"><div class="label">CONSOLA DE CONVERSACIÓN</div><div class="link" id="aiBadge" title="Proveedor de IA">—</div></div>
+    <div id="messages" class="messages" aria-live="polite"></div>
+    <div id="attach" class="attach" hidden><img id="attachImg" alt="Imagen adjunta"><span>Imagen lista para analizar</span><button type="button" id="attachClear" aria-label="Quitar imagen">✕</button></div>
+    <form id="form" class="controls">
+      <input id="query" placeholder="Escríbele a JARVIS..." aria-label="Mensaje para JARVIS" autocomplete="off" enterkeyhint="send">
+      <button type="submit" id="send">ENVIAR</button>
+    </form>
+    <div class="buttons">
+      <button id="mic" type="button" class="primary">🎙 HABLAR</button>
+      <button id="cam" type="button">📷 CÁMARA</button>
+      <button id="stop" type="button">■ SILENCIO</button>
+    </div>
+    <div class="buttons small">
+      <button id="memBtn" type="button">🧠 MEMORIA</button>
+      <button id="test" type="button">🔊 PROBAR VOZ</button>
+      <button id="setBtn" type="button">⚙ AJUSTES</button>
+    </div>
+  </section>
+  <p id="hint" class="note">Toca HABLAR o escribe tu mensaje.</p>
+  <div class="footer">JARVIS LAB · VERSION 4.1.0</div>
+</main>
+
+<!-- Cámara -->
+<section id="camSheet" class="sheet" hidden aria-label="Cámara">
+  <div class="sheet-card glass cam-card">
+    <div class="panel-head"><div class="label">VISIÓN · CÁMARA</div><button type="button" class="x" data-close="camSheet" aria-label="Cerrar cámara">✕</button></div>
+    <div class="viewfinder"><video id="video" playsinline muted autoplay></video><div class="brackets"></div><div class="scanline"></div><p id="camMsg" class="cam-msg"></p></div>
+    <input id="camQuestion" value="¿Qué ves en esta imagen?" aria-label="Pregunta sobre la imagen" autocomplete="off">
+    <div class="buttons">
+      <button type="button" id="shoot" class="primary">◉ ANALIZAR</button>
+      <button type="button" id="flip">⟲ GIRAR</button>
+      <label class="btn" for="photo">🖼 SUBIR FOTO</label>
+      <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+    </div>
+    <p class="note">La imagen se envía solo cuando pulsas ANALIZAR o eliges una foto, y no se guarda en la memoria.</p>
+  </div>
+</section>
+
+<!-- Memoria -->
+<section id="memSheet" class="sheet" hidden aria-label="Memoria">
+  <div class="sheet-card glass">
+    <div class="panel-head"><div class="label">MEMORIA · PRIVACIDAD</div><button type="button" class="x" data-close="memSheet" aria-label="Cerrar memoria">✕</button></div>
+    <label class="row"><span>Memoria activada</span><input type="checkbox" id="mEnabled"></label>
+    <label class="row"><span>Compartir recuerdos con la IA</span><input type="checkbox" id="mShare"></label>
+    <label class="row"><span>Aprendizaje automático (la IA propone recuerdos)</span><input type="checkbox" id="mAuto"></label>
+    <label class="row"><span>Guardar historial de conversación</span><input type="checkbox" id="mHistory"></label>
+    <div class="label sub">RECUERDOS <span id="mCount"></span></div>
+    <ul id="mList" class="mem-list"></ul>
+    <form id="mForm" class="controls"><input id="mInput" placeholder="Añadir recuerdo…" aria-label="Nuevo recuerdo" autocomplete="off"><button type="submit">＋</button></form>
+    <div class="buttons small">
+      <button type="button" id="mExport">⇩ EXPORTAR</button>
+      <button type="button" id="mClearHist">BORRAR HISTORIAL</button>
+      <button type="button" id="mWipe" class="danger">BORRAR TODO</button>
+    </div>
+    <p class="note">Todo se guarda solo en este iPhone. También puedes decir «recuerda que…», «olvida…» o «¿qué recuerdas?».</p>
+  </div>
+</section>
+
+<!-- Ajustes -->
+<section id="setSheet" class="sheet" hidden aria-label="Ajustes">
+  <div class="sheet-card glass">
+    <div class="panel-head"><div class="label">AJUSTES · DIAGNÓSTICO</div><button type="button" class="x" data-close="setSheet" aria-label="Cerrar ajustes">✕</button></div>
+    <div id="diag" class="diag"></div>
+    <label class="row"><span>Código de acceso del servidor</span><input id="sCode" type="password" autocomplete="off" placeholder="(si lo configuraste)"></label>
+    <label class="row"><span>Entrada de voz</span><select id="sVoiceIn"><option value="auto">Automática</option><option value="native">Safari (Siri)</option><option value="server">Grabar y transcribir</option><option value="keyboard">Dictado del teclado</option></select></label>
+    <label class="row"><span>Voz de JARVIS</span><select id="sVoiceOut"><option value="auto">Automática (natural si hay servidor)</option><option value="server">Natural del servidor</option><option value="device">Voz del iPhone</option><option value="off">Sin voz</option></select></label>
+    <label class="row"><span>Voz del iPhone</span><select id="sVoice"><option value="">Mejor disponible</option></select></label>
+    <label class="row"><span>Velocidad</span><input id="sRate" type="range" min="0.7" max="1.3" step="0.05"></label>
+    <label class="row"><span>Aviso «Te escucho» antes de escuchar</span><input type="checkbox" id="sPrime"></label>
+    <label class="row"><span>Modo ahorro (menos efectos)</span><input type="checkbox" id="sLowFx"></label>
+    <div class="buttons small"><button type="button" id="sRecheck">↻ COMPROBAR SERVIDOR</button></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

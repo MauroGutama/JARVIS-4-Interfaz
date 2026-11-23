@@ -1,0 +1,7 @@
+.git
+.env
+node_modules
+tests
+docs
+test-results
+JARVIS_4_Voz*.html

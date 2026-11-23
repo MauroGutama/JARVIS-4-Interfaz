@@ -1,0 +1,19 @@
+{
+  "name": "jarvis-4",
+  "version": "4.1.0",
+  "private": true,
+  "description": "JARVIS 4.0: asistente web para iPhone con voz, IA, cámara y memoria.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.test.mjs",
+    "test:all": "npm test && npm run test:e2e",
+    "icons": "NODE_PATH=/opt/node-tools/node_modules node scripts/make-icons.mjs",
+    "check": "node scripts/check-ai.mjs"
+  }
+}
