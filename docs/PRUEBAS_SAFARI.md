@@ -70,3 +70,7 @@ npm run check
 Hace un chat y una síntesis de voz cortos con tu clave y muestra ✅/❌.
 
 
+
+## 6. Lista de pruebas reales
+
+Usa [CHECKLIST_PRUEBAS_REALES.md](CHECKLIST_PRUEBAS_REALES.md) y envíame los resultados.
