@@ -1,17 +1,33 @@
-# Despliegue en Render (https://render.com) — las claves se introducen en el panel, no aquí.
+# Despliegue en Render (https://render.com) mediante Blueprint.
+# Las claves (sync: false) se introducen en el panel de Render, NUNCA aquí.
 services:
   - type: web
     name: jarvis-4
     runtime: node
     plan: free
-    buildCommand: "echo sin dependencias"
+    region: frankfurt
+    branch: claude/jarvis-4-iphone-dev-yit5er
+    buildCommand: "node --version"
     startCommand: "node server/server.js"
     healthCheckPath: /api/health
+    autoDeploy: true
     envVars:
+      - key: NODE_VERSION
+        value: "22"
       - key: TRUST_PROXY
         value: "1"
       - key: AI_PROVIDER
         value: openai
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: OPENAI_TTS_MODEL
+        value: gpt-4o-mini-tts
+      - key: OPENAI_TTS_VOICE
+        value: onyx
+      - key: OPENAI_STT_MODEL
+        value: gpt-4o-mini-transcribe
+      - key: RATE_LIMIT_PER_MIN
+        value: "30"
       - key: OPENAI_API_KEY
         sync: false
       - key: JARVIS_ACCESS_CODE

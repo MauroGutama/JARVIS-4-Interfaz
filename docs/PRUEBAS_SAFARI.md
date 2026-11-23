@@ -5,7 +5,7 @@
 Safari en iOS **solo permite micrófono y cámara en páginas seguras (`https://`)**. Si abres `http://192.168.x.x:8787` desde el iPhone, JARVIS cargará, pero la cámara, la grabación y, a menudo, el reconocimiento de voz no estarán disponibles. Tienes tres opciones:
 
 ### Opción A: desplegar en Render (recomendada, gratuita)
-1. En https://render.com → **New → Blueprint** → elige el repositorio `JARVIS-4-Interfaz` y la rama aprobada. Render lee `render.yaml`.
+1. En https://render.com (se puede hacer desde Safari en el iPhone) → **Sign in with GitHub** → **New → Blueprint** → repositorio `JARVIS-4-Interfaz`, rama `claude/jarvis-4-iphone-dev-yit5er` (o `main` tras aprobar la PR; cambia también `branch:` en `render.yaml`). Render lee `render.yaml`.
 2. Cuando lo pida, introduce en el panel (no en el código):
    - `OPENAI_API_KEY` = tu clave de OpenAI.
    - `JARVIS_ACCESS_CODE` = una palabra secreta que inventes, por ejemplo `stark-2026`.
@@ -68,3 +68,5 @@ Consulta `.env.example`. Las mínimas: `OPENAI_API_KEY` (o `ANTHROPIC_API_KEY`) 
 npm run check
 ```
 Hace un chat y una síntesis de voz cortos con tu clave y muestra ✅/❌.
+
+
