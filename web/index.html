@@ -60,7 +60,7 @@
     </div>
   </section>
   <p id="hint" class="note">Toca HABLAR o escribe tu mensaje.</p>
-  <div class="footer">JARVIS LAB · VERSION 4.1.0</div>
+  <div class="footer">JARVIS LAB · VERSION 4.2.0</div>
 </main>
 
 <!-- Cámara -->
@@ -104,9 +104,11 @@
   <div class="sheet-card glass">
     <div class="panel-head"><div class="label">AJUSTES · DIAGNÓSTICO</div><button type="button" class="x" data-close="setSheet" aria-label="Cerrar ajustes">✕</button></div>
     <div id="diag" class="diag"></div>
+    <label class="row"><span>Cerebro de IA</span><select id="sProvider"><option value="offline">Básico (sin API)</option></select></label>
+    <p class="note left" id="sProviderNote"></p>
     <label class="row"><span>Código de acceso del servidor</span><input id="sCode" type="password" autocomplete="off" placeholder="(si lo configuraste)"></label>
-    <label class="row"><span>Entrada de voz</span><select id="sVoiceIn"><option value="auto">Automática</option><option value="native">Safari (Siri)</option><option value="server">Grabar y transcribir</option><option value="keyboard">Dictado del teclado</option></select></label>
-    <label class="row"><span>Voz de JARVIS</span><select id="sVoiceOut"><option value="auto">Automática (natural si hay servidor)</option><option value="server">Natural del servidor</option><option value="device">Voz del iPhone</option><option value="off">Sin voz</option></select></label>
+    <label class="row"><span>Entrada de voz</span><select id="sVoiceIn"><option value="auto">Automática (Safari primero)</option><option value="native">Safari (Siri)</option><option value="server">Grabar y transcribir en servidor</option><option value="keyboard">Dictado del teclado</option></select></label>
+    <label class="row"><span>Voz de JARVIS</span><select id="sVoiceOut"><option value="device">Voz de Safari / iPhone (gratis)</option><option value="server">Natural del servidor (OpenAI, de pago)</option><option value="off">Sin voz</option></select></label>
     <label class="row"><span>Voz del iPhone</span><select id="sVoice"><option value="">Mejor disponible</option></select></label>
     <label class="row"><span>Velocidad</span><input id="sRate" type="range" min="0.7" max="1.3" step="0.05"></label>
     <label class="row"><span>Aviso «Te escucho» antes de escuchar</span><input type="checkbox" id="sPrime"></label>

@@ -1,5 +1,5 @@
 // Service worker: interfaz disponible sin conexión. La API nunca se cachea.
-const VERSION = 'jarvis-4.1.0';
+const VERSION = 'jarvis-4.2.0';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icons/icon.svg',
   'js/api.js', 'js/camera.js', 'js/local-brain.js', 'js/memory.js', 'js/speech-in.js', 'js/speech-out.js', 'js/text.js'];
 

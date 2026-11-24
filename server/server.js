@@ -97,8 +97,19 @@ function serveStatic(req, res, root) {
   });
 }
 
+/** Tope diario global (hora UTC): protege las cuotas gratuitas y evita sorpresas de facturación. */
+export function createDailyCap(limit = 300, now = () => Date.now()) {
+  let day = '', count = 0;
+  const today = () => new Date(now()).toISOString().slice(0, 10);
+  return {
+    take() { const d = today(); if (d !== day) { day = d; count = 0; } if (limit > 0 && count >= limit) return false; count++; return true; },
+    get remaining() { const d = today(); return limit > 0 ? Math.max(0, limit - (d === day ? count : 0)) : null; },
+  };
+}
+
 export function createApp({ env = process.env, fetchImpl = globalThis.fetch, webRoot = WEB_ROOT, logger = console } = {}) {
   const limiter = createRateLimiter(Number(env.RATE_LIMIT_PER_MIN || 30));
+  const daily = createDailyCap(Number(env.DAILY_REQUEST_LIMIT ?? 300));
   const accessCode = env.JARVIS_ACCESS_CODE || '';
   const trustProxy = env.TRUST_PROXY === '1';
 
@@ -114,7 +125,7 @@ export function createApp({ env = process.env, fetchImpl = globalThis.fetch, web
     res.setHeader('cache-control', 'no-store');
 
     if (p === '/api/health' && req.method === 'GET') {
-      return send(res, 200, { ok: true, name: 'JARVIS 4.0', version: '4.1.0', provider: cfg.provider, model: cfg.model, features: cfg.features, requiresCode: Boolean(accessCode) });
+      return send(res, 200, { ok: true, name: 'JARVIS 4.0', version: '4.2.0', provider: cfg.provider, model: cfg.model, providers: cfg.providers, freeOnly: cfg.freeOnly, features: cfg.features, requiresCode: Boolean(accessCode), dailyRemaining: daily.remaining });
     }
 
     if (req.method !== 'POST') return send(res, 405, { error: 'Método no permitido' });
@@ -124,13 +135,15 @@ export function createApp({ env = process.env, fetchImpl = globalThis.fetch, web
     }
     const ip = (trustProxy && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || req.socket.remoteAddress || '?';
     if (!limiter(ip)) return send(res, 429, { error: 'Demasiadas peticiones. Espera un minuto.' });
+    if (!daily.take()) return send(res, 429, { error: 'Se alcanzó el límite diario de seguridad del servidor. Usa el modo básico hasta mañana.' });
 
     try {
       if (p === '/api/chat') {
         const body = await readJSON(req, 8 * 1024 * 1024);
         const memories = Array.isArray(body.memories) ? body.memories.map(String).slice(0, 100) : [];
         const tz = typeof body.timeZone === 'string' && body.timeZone.length < 64 ? body.timeZone : undefined;
-        const out = await ai.chat({ messages: body.messages, image: body.image, memories, allowMemoryTags: body.autoLearn === true, tz, env, fetchImpl });
+        const provider = typeof body.provider === 'string' ? body.provider.slice(0, 32) : undefined;
+        const out = await ai.chat({ messages: body.messages, image: body.image, memories, allowMemoryTags: body.autoLearn === true, tz, provider, env, fetchImpl });
         return send(res, 200, out);
       }
       if (p === '/api/tts') {
@@ -163,8 +176,9 @@ export function startServer({ env = process.env, port = Number(env.PORT || 8787)
   server.listen(port, host, () => {
     const cfg = ai.config(env);
     console.log(`JARVIS 4.0 escuchando en ${scheme}://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
-    console.log(`Proveedor IA: ${cfg.provider} (${cfg.model}) · voz servidor: ${cfg.features.tts ? 'sí' : 'no'} · transcripción: ${cfg.features.stt ? 'sí' : 'no'} · código de acceso: ${env.JARVIS_ACCESS_CODE ? 'sí' : 'no'}`);
-    if (cfg.provider === 'offline') console.log('Aviso: sin OPENAI_API_KEY ni ANTHROPIC_API_KEY → modo local sin IA.');
+    console.log(`Proveedor por defecto: ${cfg.provider} (${cfg.model}) · disponibles: ${cfg.providers.map(p => p.id).join(', ')}`);
+    console.log(`Solo gratuitos: ${cfg.freeOnly ? 'sí' : 'no'} · voz servidor: ${cfg.features.tts ? 'sí' : 'no'} · transcripción: ${cfg.features.stt ? 'sí' : 'no'} · código de acceso: ${env.JARVIS_ACCESS_CODE ? 'sí' : 'no'}`);
+    if (cfg.provider === 'offline') console.log('Aviso: ninguna clave de IA configurada → modo básico sin IA.');
   });
   return server;
 }

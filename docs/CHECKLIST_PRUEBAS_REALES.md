@@ -4,21 +4,23 @@ Anota ✅ / ❌ y, si falla, el mensaje que aparece bajo los botones (o en ⚙ A
 Modelo de iPhone: ______ · Versión de iOS: ______ · URL: https://______.onrender.com
 
 ## 0. Servidor
-- [ ] `https://<tu-app>.onrender.com/api/health` muestra `"chat":true,"tts":true,"stt":true,"requiresCode":true`
+- [ ] `https://<tu-app>.onrender.com/api/health` muestra `"freeOnly":true`, `"provider":"github"` y `"requiresCode":true`
 - [ ] ⚙ AJUSTES › código introducido → diagnóstico: «Servidor: conectado», «Contexto seguro (HTTPS): sí»
 
 ## 1. Conexión con IA
 - [ ] Escribir «Explícame en dos frases qué es un agujero negro» → respuesta coherente (no «modo local»)
-- [ ] Insignia superior derecha de la consola muestra «IA · GPT-4O-MINI»
+- [ ] Insignia superior derecha de la consola muestra «IA · GITHUB MODELS»
+- [ ] ⚙ AJUSTES › Cerebro de IA › «Básico (sin API)» → insignia «MODO BÁSICO»; «¿Qué hora es?» responde sin internet
+- [ ] Volver a GitHub Models (u otro proveedor gratuito configurado) y repetir la pregunta libre
 
 ## 2. Voz de salida
-- [ ] 🔊 PROBAR VOZ con el interruptor de silencio APAGADO → voz natural (masculina, fluida)
-- [ ] ⚙ Voz de JARVIS = «Voz del iPhone» → suena la voz del dispositivo
+- [ ] 🔊 PROBAR VOZ con el interruptor de silencio APAGADO → suena la voz de Safari
+- [ ] ⚙ Voz del iPhone → elegir una voz «Mejorada/Premium» descargada → suena más natural
 - [ ] ■ SILENCIO corta la voz al instante
 
 ## 3. Voz de entrada
 - [ ] Entrada «Automática»: 🎙 HABLAR → «Te escucho» → decir «¿Qué hora es?» → aparece y responde
-- [ ] Entrada «Grabar y transcribir»: 🎙 → hablar → se detiene solo tras ~1,5 s de silencio → responde
+- [ ] (Solo si configuraste Groq) Entrada «Grabar y transcribir»: 🎙 → hablar → se detiene solo tras ~1,5 s de silencio → responde
 - [ ] Entrada «Dictado del teclado»: se abre el teclado; dictar con 🎙 del teclado funciona
 - [ ] Lo mismo desde la app instalada en pantalla de inicio
 

@@ -16,8 +16,12 @@ const els = {
 
 // ---------- Preferencias (solo en el dispositivo) ----------
 const PREFS_KEY = 'jarvis4.prefs.v1';
-const DEFAULT_PREFS = { voiceIn: 'auto', voiceOut: 'auto', voiceURI: '', rate: 1, pitch: 0.9, primeVoice: true, lowFx: false, code: '' };
-function loadPrefs() { try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return { ...DEFAULT_PREFS }; } }
+const DEFAULT_PREFS = { provider: '', voiceIn: 'auto', voiceOut: 'device', voiceURI: '', rate: 1, pitch: 0.9, primeVoice: true, lowFx: false, code: '' };
+function loadPrefs() {
+  let p; try { p = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { p = { ...DEFAULT_PREFS }; }
+  if (p.voiceOut === 'auto') p.voiceOut = 'device'; // v4.2: la voz de Safari es la predeterminada (sin coste)
+  return p;
+}
 let prefs = loadPrefs();
 function savePrefs(patch) { prefs = { ...prefs, ...patch }; try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* modo privado */ } }
 
@@ -32,7 +36,7 @@ const session = [];          // historial si el usuario no quiere guardarlo
 const STATE_LABEL = { idle: 'EN LÍNEA', listening: 'ESCUCHANDO', preparing: 'PREPARANDO', thinking: 'PROCESANDO', speaking: 'HABLANDO', offline: 'MODO LOCAL' };
 let voiceState = 'idle', listenState = 'idle';
 function render() {
-  const s = listenState !== 'idle' ? listenState : busy ? 'thinking' : voiceState !== 'idle' ? voiceState : (server?.features?.chat ? 'idle' : 'offline');
+  const s = listenState !== 'idle' ? listenState : busy ? 'thinking' : voiceState !== 'idle' ? voiceState : (activeProvider() ? 'idle' : 'offline');
   els.stateText.textContent = STATE_LABEL[s] || 'EN LÍNEA';
   els.state.className = 'status' + (s === 'offline' ? ' warn' : '') + (['thinking', 'preparing', 'listening'].includes(s) ? ' busy' : '');
   els.core.classList.toggle('talking', s === 'speaking');
@@ -78,6 +82,14 @@ const listener = createListener({
   onNotice: hint,
 });
 
+// ---------- Proveedor de IA ----------
+/** Proveedor efectivo: el elegido en Ajustes si el servidor lo ofrece; null = modo básico local. */
+function activeProvider() {
+  if (!server || prefs.provider === 'offline') return null;
+  const list = (server.providers || []).filter(p => p.id !== 'offline');
+  return list.find(p => p.id === prefs.provider) || list.find(p => p.id === server.provider) || null;
+}
+
 // ---------- Conversación ----------
 function history() { return memory.settings.saveHistory ? memory.history : session.slice(-30); }
 function remember(role, content) { if (memory.settings.saveHistory) memory.pushHistory(role, content); else { session.push({ role, content }); session.splice(0, Math.max(0, session.length - 30)); } }
@@ -108,8 +120,9 @@ async function submit(raw) {
     add(r, 'ai'); remember('user', text); remember('assistant', r); say(r); return;
   }
 
-  if (!server?.features?.chat) {
-    const r = image ? 'Necesito conexión con el servidor de IA para analizar imágenes.' : localReply(text, { memories: memory.settings.enabled ? memory.facts : [] });
+  const prov = activeProvider();
+  if (!prov) {
+    const r = image ? 'Estoy en modo básico, sin inteligencia artificial: para analizar imágenes elige un proveedor de IA en Ajustes.' : localReply(text, { memories: memory.settings.enabled ? memory.facts : [] });
     add(r, 'ai'); remember('user', text); remember('assistant', r); say(r); return;
   }
 
@@ -118,7 +131,7 @@ async function submit(raw) {
   const messages = [...history(), { role: 'user', content: text }];
   try {
     const out = await api.chat({
-      messages, image: image ? { mediaType: image.mediaType, data: image.data } : undefined,
+      provider: prov.id, messages, image: image ? { mediaType: image.mediaType, data: image.data } : undefined,
       memories: memory.contextFacts(), autoLearn: memory.settings.enabled && memory.settings.autoLearn,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
@@ -139,6 +152,7 @@ async function submit(raw) {
     add('⚠ ' + e.message, 'sys err');
     if (e.status === 0) { server = null; updateServerUi(); }
     if (e.status === 401) openSheet('setSheet');
+    if (e.status === 402 || e.status === 429) add('Consejo: en ⚙ AJUSTES › Cerebro de IA puedes cambiar a otro proveedor gratuito o al modo básico.', 'sys');
     const r = image ? 'No pude analizar la imagen en este momento.' : localReply(text, { memories: memory.settings.enabled ? memory.facts : [] });
     add(r, 'ai');
     render(); say(r);
@@ -218,6 +232,15 @@ $('#mWipe').addEventListener('click', () => {
 
 // ---------- Ajustes y diagnóstico ----------
 function renderSettings() {
+  const provSel = $('#sProvider'); provSel.length = 0;
+  for (const p of server?.providers || [{ id: 'offline', label: 'Básico (sin API)', free: true }]) {
+    provSel.append(new Option(`${p.label}${p.id === 'offline' ? '' : p.free ? ' · gratis' : ' · de pago'}${p.id !== 'offline' && !p.vision ? ' · sin cámara' : ''}`, p.id));
+  }
+  const cur = activeProvider();
+  provSel.value = cur ? cur.id : 'offline';
+  $('#sProviderNote').textContent = cur
+    ? `Modelo: ${cur.model}. ${cur.free ? 'Nivel gratuito con límites diarios; sin cargos mientras no añadas un método de pago en el proveedor.' : 'Proveedor de pago: consume créditos de tu cuenta.'} Edad mínima según sus términos: ${cur.minAge}+.`
+    : 'Modo básico: hora, fecha, memoria y comandos locales. No usa ninguna API ni internet para responder.';
   $('#sCode').value = prefs.code; $('#sVoiceIn').value = prefs.voiceIn; $('#sVoiceOut').value = prefs.voiceOut;
   $('#sRate').value = prefs.rate; $('#sPrime').checked = prefs.primeVoice; $('#sLowFx').checked = prefs.lowFx;
   const sel = $('#sVoice'); sel.length = 1;
@@ -227,8 +250,9 @@ function renderSettings() {
   const yes = b => b ? '<span class="ok">sí</span>' : '<span class="no">no</span>';
   const f = server?.features || {};
   $('#diag').innerHTML = [
-    `<b>Servidor:</b> ${server ? '<span class="ok">conectado</span>' : '<span class="no">sin conexión (modo local)</span>'}`,
-    server ? `<b>IA:</b> ${esc(server.provider)} · ${esc(server.model)}` : '',
+    `<b>Servidor:</b> ${server ? '<span class="ok">conectado</span>' : '<span class="no">sin conexión (modo básico)</span>'}`,
+    server ? `<b>IA activa:</b> ${cur ? esc(cur.label) + ' · ' + esc(cur.model) : 'modo básico'}` : '',
+    server ? `<b>Solo proveedores gratuitos:</b> ${yes(server.freeOnly)}${server.dailyRemaining != null ? ` · <b>Peticiones restantes hoy:</b> ${esc(server.dailyRemaining)}` : ''}` : '',
     `<b>Contexto seguro (HTTPS):</b> ${yes(window.isSecureContext)}`,
     `<b>Reconocimiento Safari:</b> ${yes(caps.native)} · <b>Grabación:</b> ${yes(caps.recorder)} · <b>Transcripción servidor:</b> ${yes(f.stt)}`,
     `<b>Voz natural servidor:</b> ${yes(f.tts)} · <b>Voces del iPhone en español:</b> ${speaker.voices.length}`,
@@ -238,6 +262,7 @@ function renderSettings() {
 }
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 $('#sCode').addEventListener('change', e => { savePrefs({ code: e.target.value.trim() }); checkServer(); });
+$('#sProvider').addEventListener('change', e => { savePrefs({ provider: e.target.value }); updateServerUi(); renderSettings(); hint(e.target.value === 'offline' ? 'Modo básico activado: sin API, sin coste.' : 'Proveedor de IA cambiado.'); });
 $('#sVoiceIn').addEventListener('change', e => savePrefs({ voiceIn: e.target.value }));
 $('#sVoiceOut').addEventListener('change', e => savePrefs({ voiceOut: e.target.value }));
 $('#sVoice').addEventListener('change', e => savePrefs({ voiceURI: e.target.value }));
@@ -255,15 +280,16 @@ document.addEventListener('pointerdown', () => speaker.unlock(), { once: true, c
 
 // ---------- Servidor ----------
 function updateServerUi() {
-  els.aiBadge.textContent = server ? (server.features.chat ? `IA · ${server.model}` : 'SERVIDOR SIN IA') : 'MODO LOCAL';
+  const p = activeProvider();
+  els.aiBadge.textContent = p ? `IA · ${p.label}` : 'MODO BÁSICO';
   render();
 }
 async function checkServer() {
   try { server = await api.health(); }
   catch { server = null; }
   updateServerUi();
-  if (!server) hint('Sin conexión con el servidor: modo local con respuestas básicas. Abre JARVIS desde la dirección de tu servidor para activar la IA.');
-  else if (!server.features.chat) hint('Servidor conectado, pero sin clave de IA configurada: respuestas básicas.');
+  if (!server) hint('Sin conexión con el servidor: modo básico. Abre JARVIS desde la dirección de tu servidor para activar la IA.');
+  else if (!activeProvider()) hint('Modo básico (sin API): prueba la interfaz, la voz, la memoria y los comandos locales. Elige un cerebro de IA en Ajustes.');
   else hint('Toca HABLAR, escribe o usa la CÁMARA.');
   return server;
 }

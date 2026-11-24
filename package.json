@@ -1,6 +1,6 @@
 {
   "name": "jarvis-4",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "private": true,
   "description": "JARVIS 4.0: asistente web para iPhone con voz, IA, cámara y memoria.",
   "type": "module",

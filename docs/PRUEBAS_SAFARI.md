@@ -60,7 +60,7 @@ Usa siempre `JARVIS_ACCESS_CODE` cuando la URL sea pública.
 
 ## 4. Variables de entorno
 
-Consulta `.env.example`. Las mínimas: `OPENAI_API_KEY` (o `ANTHROPIC_API_KEY`) y `JARVIS_ACCESS_CODE`.
+Consulta `.env.example` y [PROVEEDORES_GRATIS.md](PROVEEDORES_GRATIS.md). Las mínimas para usarlo gratis: `GITHUB_MODELS_TOKEN` y `JARVIS_ACCESS_CODE` (`FREE_ONLY` está activado por defecto).
 
 ## 5. Verificar la IA real
 

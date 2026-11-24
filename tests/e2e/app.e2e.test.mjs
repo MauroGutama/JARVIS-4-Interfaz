@@ -23,15 +23,15 @@ function mockUpstream() {
     const raw = Buffer.concat(chunks);
     const call = { path: req.url, body: req.headers['content-type']?.includes('json') ? JSON.parse(raw) : raw.length };
     calls.push(call);
-    if (req.url === '/v1/chat/completions') {
+    if (req.url.endsWith('/chat/completions')) {
       const last = call.body.messages.at(-1);
       const hasImage = Array.isArray(last.content);
       const text = hasImage ? 'Veo un patrón de prueba de colores. <memoria>nunca debe guardarse sin permiso</memoria>' : `Respuesta IA a: ${last.content}`;
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ choices: [{ message: { content: text } }] }));
     }
-    if (req.url === '/v1/audio/speech') { res.writeHead(200, { 'content-type': 'audio/mpeg' }); return res.end(Buffer.alloc(64)); }
-    if (req.url === '/v1/audio/transcriptions') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ text: 'qué hora es' })); }
+    if (req.url.endsWith('/audio/speech')) { res.writeHead(200, { 'content-type': 'audio/mpeg' }); return res.end(Buffer.alloc(64)); }
+    if (req.url.endsWith('/audio/transcriptions')) { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ text: 'qué hora es' })); }
     res.writeHead(404); res.end();
   }).then(s => ({ server: s, calls, url: `http://127.0.0.1:${s.address().port}` }));
 }
@@ -49,14 +49,20 @@ async function setup(env) {
 
 const lastAi = page => page.locator('.msg.ai').last();
 
-test('JARVIS completo con IA simulada', { skip, timeout: 90_000 }, async t => {
+const isChat = c => c.path.endsWith('/chat/completions');
+
+test('JARVIS completo con proveedores gratuitos simulados', { skip, timeout: 90_000 }, async t => {
   const up = await mockUpstream();
-  const s = await setup({ OPENAI_API_KEY: 'sk-test', OPENAI_BASE_URL: up.url, RATE_LIMIT_PER_MIN: '200' });
+  const s = await setup({
+    FREE_ONLY: '1', OPENAI_API_KEY: 'sk-no-se-usa', RATE_LIMIT_PER_MIN: '200',
+    GITHUB_MODELS_TOKEN: 'gh-test', GITHUB_MODELS_BASE_URL: up.url + '/github',
+    GROQ_API_KEY: 'gq-test', GROQ_BASE_URL: up.url + '/groq',
+  });
   const { page } = s;
   try {
     await page.goto('/');
     await t.test('carga sin errores y detecta el servidor', async () => {
-      await page.locator('#aiBadge', { hasText: 'gpt-4o-mini' }).waitFor();
+      await page.locator('#aiBadge', { hasText: 'GitHub Models' }).waitFor();
       assert.match(await page.locator('#stateText').textContent(), /EN LÍNEA|HABLANDO/);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       assert.equal(overflow, false, 'sin desplazamiento horizontal en iPhone');
@@ -70,15 +76,43 @@ test('JARVIS completo con IA simulada', { skip, timeout: 90_000 }, async t => {
       await page.fill('#query', 'Hola, ¿quién eres?');
       await page.click('#send');
       await page.locator('.msg.ai', { hasText: 'Respuesta IA a: Hola, ¿quién eres?' }).waitFor();
-      assert.ok(up.calls.some(c => c.path === '/v1/chat/completions'));
+      const c = up.calls.find(isChat);
+      assert.equal(c.path, '/github/chat/completions');
+      assert.equal(c.body.model, 'openai/gpt-4.1-mini');
     });
 
-    await t.test('voz natural del servidor solicitada tras responder', async () => {
-      await page.waitForFunction(() => true);
-      for (let i = 0; i < 50 && !up.calls.some(c => c.path === '/v1/audio/speech'); i++) await page.waitForTimeout(100);
-      const tts = up.calls.find(c => c.path === '/v1/audio/speech');
-      assert.ok(tts, 'se pidió la voz natural');
-      assert.equal(tts.body.input, 'Respuesta IA a: Hola, ¿quién eres?');
+    await t.test('voz de Safari por defecto: nunca usa la voz de pago del servidor', async () => {
+      await page.waitForTimeout(800);
+      assert.equal(up.calls.some(c => c.path.endsWith('/audio/speech')), false);
+      assert.ok(!up.calls.some(c => c.path.startsWith('/v1/')), 'OpenAI nunca se llama con FREE_ONLY');
+    });
+
+    await t.test('cambiar de proveedor desde Ajustes y modo básico', async () => {
+      await page.click('#setBtn');
+      const opts = await page.locator('#sProvider option').allTextContents();
+      assert.deepEqual(opts.map(o => o.split(' ·')[0]), ['GitHub Models', 'Groq', 'Básico (sin API)']);
+      assert.ok(!opts.some(o => /OpenAI/.test(o)), 'OpenAI oculto con FREE_ONLY');
+      await page.selectOption('#sProvider', 'groq');
+      await page.locator('#sProviderNote', { hasText: 'llama-3.3-70b-versatile' }).waitFor();
+      await page.click('[data-close="setSheet"]');
+      await page.locator('#aiBadge', { hasText: 'Groq' }).waitFor();
+      await page.fill('#query', 'Prueba Groq'); await page.click('#send');
+      await page.locator('.msg.ai', { hasText: 'Respuesta IA a: Prueba Groq' }).waitFor();
+      assert.equal(up.calls.filter(isChat).at(-1).path, '/groq/chat/completions');
+
+      await page.click('#setBtn');
+      await page.selectOption('#sProvider', 'offline');
+      await page.click('[data-close="setSheet"]');
+      await page.locator('#aiBadge', { hasText: 'MODO BÁSICO' }).waitFor();
+      const before = up.calls.length;
+      await page.fill('#query', '¿Qué hora es?'); await page.click('#send');
+      await lastAi(page).filter({ hasText: 'Son las' }).waitFor();
+      assert.equal(up.calls.length, before, 'el modo básico no llama a ninguna API');
+
+      await page.click('#setBtn');
+      await page.selectOption('#sProvider', 'github');
+      await page.click('[data-close="setSheet"]');
+      await page.locator('#aiBadge', { hasText: 'GitHub Models' }).waitFor();
     });
 
     await t.test('memoria: guardar por voz/texto, usar como contexto, persistir y borrar', async () => {
@@ -88,7 +122,7 @@ test('JARVIS completo con IA simulada', { skip, timeout: 90_000 }, async t => {
       await page.fill('#query', '¿Cuál es mi color?');
       await page.click('#send');
       await page.locator('.msg.ai', { hasText: 'Respuesta IA a: ¿Cuál es mi color?' }).waitFor();
-      const sys = up.calls.filter(c => c.path === '/v1/chat/completions').at(-1).body.messages[0].content;
+      const sys = up.calls.filter(isChat).at(-1).body.messages[0].content;
       assert.match(sys, /mi color favorito es el azul/);
       await page.reload();
       await page.locator('.msg', { hasText: '¿Cuál es mi color?' }).first().waitFor(); // historial restaurado
@@ -107,7 +141,7 @@ test('JARVIS completo con IA simulada', { skip, timeout: 90_000 }, async t => {
       await page.click('#shoot');
       await page.locator('.msg.ai', { hasText: 'Veo un patrón de prueba' }).waitFor();
       assert.equal(await page.locator('#camSheet').isHidden(), true);
-      const call = up.calls.filter(c => c.path === '/v1/chat/completions').at(-1);
+      const call = up.calls.filter(isChat).at(-1);
       const img = call.body.messages.at(-1).content.find(p => p.type === 'image_url');
       assert.match(img.image_url.url, /^data:image\/jpeg;base64,/);
       assert.ok(await page.locator('.msg.human img').count() >= 1, 'miniatura en la conversación');
@@ -119,14 +153,14 @@ test('JARVIS completo con IA simulada', { skip, timeout: 90_000 }, async t => {
     await t.test('micrófono: grabar y transcribir en el servidor', async () => {
       await page.evaluate(() => { const p = JSON.parse(localStorage.getItem('jarvis4.prefs.v1') || '{}'); localStorage.setItem('jarvis4.prefs.v1', JSON.stringify({ ...p, voiceIn: 'server' })); });
       await page.reload();
-      await page.locator('#aiBadge', { hasText: 'gpt-4o-mini' }).waitFor();
+      await page.locator('#aiBadge', { hasText: 'GitHub Models' }).waitFor();
       await page.click('#mic');
       await page.locator('#stateText', { hasText: 'ESCUCHANDO' }).waitFor();
       await page.waitForTimeout(1500);
       await page.click('#mic');
       await page.locator('.msg.human', { hasText: 'qué hora es' }).waitFor({ timeout: 15_000 });
       await page.locator('.msg.ai', { hasText: 'Respuesta IA a: qué hora es' }).waitFor();
-      assert.ok(up.calls.some(c => c.path === '/v1/audio/transcriptions'));
+      assert.ok(up.calls.some(c => c.path === '/groq/audio/transcriptions'), 'Whisper gratuito de Groq');
     });
 
     await t.test('ajustes muestran el diagnóstico', async () => {
@@ -141,11 +175,11 @@ test('JARVIS completo con IA simulada', { skip, timeout: 90_000 }, async t => {
   } finally { await s.close(); up.server.close(); }
 });
 
-test('modo local sin claves de IA', { skip, timeout: 60_000 }, async () => {
+test('modo básico sin claves de IA', { skip, timeout: 60_000 }, async () => {
   const s = await setup({});
   try {
     await s.page.goto('/');
-    await s.page.locator('#stateText', { hasText: 'MODO LOCAL' }).waitFor();
+    await s.page.locator('#aiBadge', { hasText: 'MODO BÁSICO' }).waitFor();
     await s.page.fill('#query', '¿Qué hora es?');
     await s.page.click('#send');
     await lastAi(s.page).filter({ hasText: 'Son las' }).waitFor();
@@ -153,12 +187,12 @@ test('modo local sin claves de IA', { skip, timeout: 60_000 }, async () => {
   } finally { await s.close(); }
 });
 
-test('código de acceso obligatorio', { skip, timeout: 60_000 }, async () => {
+test('integración OpenAI conservada (de pago) con código de acceso', { skip, timeout: 60_000 }, async () => {
   const up = await mockUpstream();
-  const s = await setup({ OPENAI_API_KEY: 'k', OPENAI_BASE_URL: up.url, JARVIS_ACCESS_CODE: 'stark' });
+  const s = await setup({ OPENAI_API_KEY: 'k', FREE_ONLY: '0', OPENAI_BASE_URL: up.url, JARVIS_ACCESS_CODE: 'stark' });
   try {
     await s.page.goto('/');
-    await s.page.locator('#aiBadge', { hasText: 'gpt-4o-mini' }).waitFor();
+    await s.page.locator('#aiBadge', { hasText: 'OpenAI' }).waitFor();
     await s.page.fill('#query', 'hola');
     await s.page.click('#send');
     await s.page.locator('.msg.sys', { hasText: 'Código de acceso' }).waitFor();
@@ -169,5 +203,8 @@ test('código de acceso obligatorio', { skip, timeout: 60_000 }, async () => {
     await s.page.fill('#query', 'hola de nuevo');
     await s.page.click('#send');
     await s.page.locator('.msg.ai', { hasText: 'Respuesta IA a: hola de nuevo' }).waitFor();
+    assert.equal(up.calls.filter(isChat).at(-1).path, '/v1/chat/completions');
+    await s.page.click('#setBtn');
+    assert.match(await s.page.locator('#sProvider option[value="openai"]').textContent(), /de pago/);
   } finally { await s.close(); up.server.close(); }
 });
